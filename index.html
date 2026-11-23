@@ -63,7 +63,15 @@
 <script>
 'use strict';
  
-var CONFIG =  null;
+var CONFIG ={
+ "storageBucket": "criterio-pin.firebasestorage.app",
+ "apiKey": "AIzaSyCE7kECMcGI6EgyRbeClsXazPEdjzKFun8",
+ "messagingSenderId": "666496292965",
+ "appId": "1:666496292965:web:3f97b1f9b397ddc5048e8c",
+ "projectId": "criterio-pin",
+ "databaseURL": "https://criterio-pin-default-rtdb.europe-west1.firebasedatabase.app",
+ "authDomain": "criterio-pin.firebaseapp.com"
+};
 var X = { uid: '', pin: '', ses: null, nombre: '', alumnoId: '', resp: {}, pos: 0, salidas: 0, perdonadas: 0, empezado: false, entregado: false };
 var db;
 function $(s) { return document.querySelector(s); }
