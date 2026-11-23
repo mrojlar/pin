@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Criterio · Entrar con PIN</title>
+<title>Criterio</title>
+<meta property="og:title" content="Criterio">
 <style>
   :root { --acento: #0071e3; --acento-suave: #e8f2fd; --texto: #1d1d1f; --texto-2: #6e6e73; --linea: #e5e5ea; --fondo: #f5f5f7; --exito: #1f9d4c; --peligro: #d70015; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -52,6 +53,27 @@
   .evaluado { font-size: 18px; margin: 22px 0 10px; }
   .aviso { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #1d1d1f; color: #fff; padding: 12px 18px; border-radius: 14px; z-index: 70; max-width: 90%; text-align: center; }
   .cargando { text-align: center; color: var(--texto-2); padding: 60px 0; }
+   
+  .escaner { position: fixed; inset: 0; z-index: 80; background: #000; color: #fff; display: flex; flex-direction: column; }
+  .esc-cab, .esc-pie { display: flex; align-items: center; gap: 10px; padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); background: rgba(20,20,22,.96); }
+  .esc-pie { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .esc-tit { flex: 1; text-align: center; font-weight: 700; font-size: 15px; line-height: 1.25; min-width: 0; }
+  .esc-tit small { display: block; font-weight: 500; font-size: 12.5px; opacity: .75; }
+  .esc-btn { background: rgba(255,255,255,.14); color: #fff; border-radius: 12px; padding: 10px 14px; font-weight: 600; font-size: 14.5px; }
+  .esc-visor { position: relative; flex: 1; min-height: 0; }
+  .esc-visor video, .esc-visor canvas.capa { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .esc-pista { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); background: rgba(0,0,0,.62); padding: 8px 14px; border-radius: 12px; font-size: 14px; text-align: center; max-width: 90%; }
+  .esc-res { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); min-width: 240px; max-width: 92%; text-align: center; padding: 14px 20px; border-radius: 18px; font-size: 20px; line-height: 1.3; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+  .esc-res b { font-size: 30px; } .esc-res small { display: block; font-size: 13.5px; opacity: .9; margin-top: 2px; }
+  .esc-res.ok { background: #1f9d55; } .esc-res.duda { background: #c98500; } .esc-res.mal { background: #d70015; } .esc-res.ya { background: #3a3a3c; }
+  .esc-rev { position: absolute; inset: 0; background: rgba(20,20,22,.97); overflow-y: auto; padding: 16px; }
+  .esc-rev h2 { margin: 4px 0 6px; font-size: 20px; } .esc-rev p { color: #c7c7cc; margin: 0 0 12px; line-height: 1.4; }
+  .esc-rev canvas { max-width: 100%; max-height: 42vh; display: block; margin: 0 auto 12px; border-radius: 8px; }
+  .esc-fila { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: #2c2c2e; margin-bottom: 8px; flex-wrap: wrap; }
+  .esc-fila .n { width: 34px; font-weight: 800; }
+  .esc-fila button { width: 44px; height: 44px; border-radius: 50%; background: #3a3a3c; color: #fff; font-weight: 700; font-size: 15px; border: 2px solid #48484a; }
+  .esc-fila button.sel { background: #0071e3; border-color: #0071e3; }
+  .esc-fila button.blanco { width: auto; border-radius: 22px; padding: 0 14px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -63,15 +85,15 @@
 <script>
 'use strict';
  
-var CONFIG ={
- "storageBucket": "criterio-pin.firebasestorage.app",
- "apiKey": "AIzaSyCE7kECMcGI6EgyRbeClsXazPEdjzKFun8",
- "messagingSenderId": "666496292965",
- "appId": "1:666496292965:web:3f97b1f9b397ddc5048e8c",
- "projectId": "criterio-pin",
- "databaseURL": "https://criterio-pin-default-rtdb.europe-west1.firebasedatabase.app",
- "authDomain": "criterio-pin.firebaseapp.com"
-};
+var ESCOD = ((location.search.match(/[?&]esc=([A-Za-z0-9]{20,})/) || [])[1]) || '';
+var CONFIG = {"apiKey":"AIzaSyCE7kECMcGI6EgyRbeClsXazPEdjzKFun8","authDomain":"criterio-pin.firebaseapp.com","databaseURL":"https://criterio-pin-default-rtdb.europe-west1.firebasedatabase.app","projectId":"criterio-pin","appId":"1:666496292965:web:3f97b1f9b397ddc5048e8c"};
+if (CONFIG === 'CONFIG_FIREBASE') CONFIG = null;
+
+(function () {
+  var m = location.search.match(/[?&]ir=([^&]+)/); if (!m) return;
+  var u = ''; try { u = decodeURIComponent(m[1]); } catch (e) {}
+  if (/^https:\/\/script\.google\.com\//.test(u)) { CONFIG = null; window.__IR = u; location.replace(u); }
+})();
 var X = { uid: '', pin: '', ses: null, nombre: '', alumnoId: '', resp: {}, pos: 0, salidas: 0, perdonadas: 0, empezado: false, entregado: false };
 var db;
 function $(s) { return document.querySelector(s); }
@@ -91,10 +113,11 @@ function preguntar(titulo, texto, si, no) {
 }
 
  
-if (!CONFIG) { raiz(marca() + '<div class="caja"><h2>Falta la configuración</h2><p class="sub">Esta página se descarga desde Criterio (Ajustes → Modo PIN) con la configuración ya puesta.</p></div>'); }
+if (window.__IR) { raiz(marca() + '<div class="cargando">Abriendo…</div>'); }
+else if (!CONFIG) { raiz(marca() + '<div class="caja"><h2>Falta la configuración</h2><p class="sub">Esta página se descarga desde Criterio (Ajustes → Modo PIN) con la configuración ya puesta.</p></div>'); }
 else {
   firebase.initializeApp(CONFIG); db = firebase.database();
-  firebase.auth().signInAnonymously().then(function (c) { X.uid = c.user.uid; pantallaPin(); })
+  firebase.auth().signInAnonymously().then(function (c) { X.uid = c.user.uid; if (ESCOD) modoEscaner(); else pantallaPin(); })
     .catch(function () { raiz(marca() + '<div class="caja"><h2>Sin conexión</h2><p class="sub">No se ha podido conectar. Revisa la conexión a internet y recarga la página.</p></div>'); });
 }
 
@@ -346,6 +369,420 @@ function pintarEval() {
     if (faltan) preguntar('¿Enviar igualmente?', 'Te faltan ' + faltan + ' apartados por valorar.', 'Enviar', 'Seguir').then(function (ok) { if (ok) entregar(true); });
     else entregar(true);
   };
+}
+
+ 
+ 
+
+function plantillaHoja(W, H, n, nOp) {
+  var L = { W: W, H: H, n: n, nOp: nOp, marca: 8 };
+  L.marcas = [[11, 11], [W - 11, 11], [W - 11, H - 11], [11, H - 11]]; 
+  L.qr = { x: W - 18 - 26, y: 17, t: 26 };
+  L.y0 = 62; L.x0 = 20; L.x1 = W - 20; L.yMax = H - 19;
+  var rh = 8, filasMax = Math.max(4, Math.floor((L.yMax - L.y0 - 6) / rh));
+  var cols = Math.max(1, Math.ceil(n / filasMax));
+  var porCol = Math.ceil(n / cols);
+  if (porCol < filasMax && porCol * rh < (L.yMax - L.y0 - 6) * 0.55) rh = Math.min(10, (L.yMax - L.y0 - 6) / Math.max(porCol, 1));
+  var cw = (L.x1 - L.x0) / cols;
+  var bs = Math.min(9, (cw - 13) / nOp);
+  L.r = Math.max(1.6, Math.min(2.6, bs * 0.32));
+  L.rh = rh; L.cols = cols; L.porCol = porCol; L.cw = cw; L.bs = bs;
+  L.burbujas = [];
+  for (var i = 0; i < n; i++) {
+    var c = Math.floor(i / porCol), f = i % porCol, cx = L.x0 + c * cw;
+    var fila = { num: { x: cx + 7, y: L.y0 + 6 + rh * (f + 0.5) }, b: [], hueco: [] };
+    for (var j = 0; j < nOp; j++) fila.b.push({ x: cx + 11 + bs * (j + 0.5), y: L.y0 + 6 + rh * (f + 0.5) });
+    
+    for (var k = 0; k <= nOp; k++) fila.hueco.push({ x: cx + 11 + bs * k, y: L.y0 + 6 + rh * (f + 0.5) - L.r * 1.05 });
+    L.burbujas.push(fila);
+  }
+  L.letras = [];
+  for (var c2 = 0; c2 < cols; c2++) for (var j2 = 0; j2 < nOp; j2++) L.letras.push({ t: 'ABCDEFGH'[j2], x: L.x0 + c2 * cw + 11 + bs * (j2 + 0.5), y: L.y0 + 3 });
+  return L;
+}
+function textoQrHoja(hojaId, n, nOp, apaisada) { return 'CRT1:' + hojaId + ':' + n + ':' + nOp + ':' + (apaisada ? 'L' : 'P'); }
+function leerTextoQr(t) {
+  var m = String(t || '').match(/^CRT1:(hp\w+):(\d+):(\d+):([PL])$/);
+  return m ? { hojaId: m[1], n: Number(m[2]), nOp: Number(m[3]), apaisada: m[4] === 'L' } : null;
+}
+
+ 
+function resolverLineal(A, b) {
+  var n = b.length, M = A.map(function (f, i) { return f.concat([b[i]]); });
+  for (var c = 0; c < n; c++) {
+    var p = c; for (var r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    var t = M[c]; M[c] = M[p]; M[p] = t;
+    if (Math.abs(M[c][c]) < 1e-12) return null;
+    for (var r2 = 0; r2 < n; r2++) if (r2 !== c) { var k = M[r2][c] / M[c][c]; for (var c2 = c; c2 <= n; c2++) M[r2][c2] -= k * M[c][c2]; }
+  }
+  return M.map(function (f, i) { return f[n] / f[i]; });
+}
+function homografia(de, a) {
+  var A = [], b = [];
+  for (var i = 0; i < 4; i++) {
+    var x = de[i][0], y = de[i][1], u = a[i][0], v = a[i][1];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+  }
+  var h = resolverLineal(A, b); if (!h) return null;
+  return function (x, y) { var w = h[6] * x + h[7] * y + 1; return [(h[0] * x + h[1] * y + h[2]) / w, (h[3] * x + h[4] * y + h[5]) / w]; };
+}
+
+ 
+ 
+function prepararGris(img) {
+  var w = img.width, h = img.height, g = new Float32Array(w * h), d = img.data;
+  for (var i = 0, p = 0; i < g.length; i++, p += 4) g[i] = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2];
+  
+  var I = new Float64Array((w + 1) * (h + 1));
+  for (var y = 0; y < h; y++) { var s = 0; for (var x = 0; x < w; x++) { s += g[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + s; } }
+  return { w: w, h: h, g: g, I: I };
+}
+function mediaLocal(G, x, y, rad) {
+  var w = G.w, h = G.h, x0 = Math.max(0, x - rad), y0 = Math.max(0, y - rad), x1 = Math.min(w, x + rad + 1), y1 = Math.min(h, y + rad + 1);
+  var W1 = w + 1, s = G.I[y1 * W1 + x1] - G.I[y0 * W1 + x1] - G.I[y1 * W1 + x0] + G.I[y0 * W1 + x0];
+  return s / Math.max(1, (x1 - x0) * (y1 - y0));
+}
+ 
+function buscarMarcas(G) {
+  var w = G.w, h = G.h, rad = Math.round(Math.max(w, h) / 18), osc = new Uint8Array(w * h);
+  for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) { var m = mediaLocal(G, x, y, rad); osc[y * w + x] = G.g[y * w + x] < Math.min(m * 0.62, 150) ? 1 : 0; }
+  var etiqueta = new Int32Array(w * h), cands = [], pila = new Int32Array(w * h), lab = 0;
+  var minLado = Math.max(w, h) * 0.012, maxLado = Math.max(w, h) * 0.09;
+  for (var i = 0; i < w * h; i++) {
+    if (!osc[i] || etiqueta[i]) continue;
+    lab++; var n = 0, top = 0, x0 = w, x1 = 0, y0 = h, y1 = 0, sx = 0, sy = 0;
+    pila[top++] = i; etiqueta[i] = lab;
+    while (top) {
+      var q = pila[--top], qx = q % w, qy = (q - qx) / w; n++; sx += qx; sy += qy;
+      if (qx < x0) x0 = qx; if (qx > x1) x1 = qx; if (qy < y0) y0 = qy; if (qy > y1) y1 = qy;
+      if (qx > 0 && osc[q - 1] && !etiqueta[q - 1]) { etiqueta[q - 1] = lab; pila[top++] = q - 1; }
+      if (qx < w - 1 && osc[q + 1] && !etiqueta[q + 1]) { etiqueta[q + 1] = lab; pila[top++] = q + 1; }
+      if (qy > 0 && osc[q - w] && !etiqueta[q - w]) { etiqueta[q - w] = lab; pila[top++] = q - w; }
+      if (qy < h - 1 && osc[q + w] && !etiqueta[q + w]) { etiqueta[q + w] = lab; pila[top++] = q + w; }
+    }
+    var bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+    if (bw < minLado || bh < minLado || bw > maxLado || bh > maxLado) continue;
+    var ratio = bw / bh; if (ratio < 0.6 || ratio > 1.65) continue;
+    var lleno = n / (bw * bh); if (lleno < 0.55) continue;
+    cands.push({ x: sx / n, y: sy / n, area: n, lleno: lleno });
+  }
+  return cands;
+}
+function areaCuad(p) { var a = 0; for (var i = 0; i < 4; i++) { var j = (i + 1) % 4; a += p[i].x * p[j].y - p[j].x * p[i].y; } return Math.abs(a) / 2; }
+function ordenarCiclo(ps) {
+  var cx = 0, cy = 0; ps.forEach(function (p) { cx += p.x / 4; cy += p.y / 4; });
+  return ps.slice().sort(function (a, b) { return Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx); });
+}
+function esConvexo(p) {
+  var s = 0;
+  for (var i = 0; i < 4; i++) {
+    var a = p[i], b = p[(i + 1) % 4], c = p[(i + 2) % 4];
+    var z = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    if (z === 0) return false; if (!s) s = Math.sign(z); else if (Math.sign(z) !== s) return false;
+  }
+  return true;
+}
+ 
+function elegirCuatro(cands) {
+  var c = cands.slice().sort(function (a, b) { return b.area - a.area; }).slice(0, 12), mejor = null, mejorA = 0;
+  for (var a = 0; a < c.length; a++) for (var b = a + 1; b < c.length; b++) for (var d = b + 1; d < c.length; d++) for (var e = d + 1; e < c.length; e++) {
+    var g = [c[a], c[b], c[d], c[e]];
+    var mx = Math.max.apply(null, g.map(function (x) { return x.area; })), mn = Math.min.apply(null, g.map(function (x) { return x.area; }));
+    if (mx / mn > 3) continue;
+    var o = ordenarCiclo(g); if (!esConvexo(o)) continue;
+    var ar = areaCuad(o); if (ar > mejorA) { mejorA = ar; mejor = o; }
+  }
+  return mejor;
+}
+function oscuridad(G, fondo, x, y) {
+  if (x < 0 || y < 0 || x >= G.w - 1 || y >= G.h - 1) return 0;
+  var x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, w = G.w, g = G.g;
+  var v = g[y0 * w + x0] * (1 - fx) * (1 - fy) + g[y0 * w + x0 + 1] * fx * (1 - fy) + g[(y0 + 1) * w + x0] * (1 - fx) * fy + g[(y0 + 1) * w + x0 + 1] * fx * fy;
+  return Math.max(0, Math.min(1, 1 - v / Math.max(30, fondo)));
+}
+
+
+
+function detectarHoja(img) {
+  var G = prepararGris(img);
+  var cands = buscarMarcas(G), cuatro = elegirCuatro(cands);
+  var qrTxt = null, qrPos = null;
+  if (window.jsQR) {
+    var r = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (r) { qrTxt = r.data; var l = r.location; qrPos = { x: (l.topLeftCorner.x + l.bottomRightCorner.x) / 2, y: (l.topLeftCorner.y + l.bottomRightCorner.y) / 2 }; }
+  }
+  if (!cuatro) return { error: 'marcas', qr: leerTextoQr(qrTxt), G: G };
+  var info = leerTextoQr(qrTxt);
+  var giro = function (k) { return [cuatro[(k + 3) % 4], cuatro[k], cuatro[(k + 1) % 4], cuatro[(k + 2) % 4]]; }; 
+  
+  var k = 1;
+  if (qrPos && info) {
+    var dmin = 1e18; cuatro.forEach(function (p, i) { var dd = (p.x - qrPos.x) * (p.x - qrPos.x) + (p.y - qrPos.y) * (p.y - qrPos.y); if (dd < dmin) { dmin = dd; k = i; } });
+    return { qr: info, esquinas: giro(k), G: G, sinQr: false };
+  }
+  
+  var mejor = null;
+  for (var g = 0; g < 4; g++) {
+    var esq = giro(g), ancho = Math.hypot(esq[1].x - esq[0].x, esq[1].y - esq[0].y), alto = Math.hypot(esq[3].x - esq[0].x, esq[3].y - esq[0].y);
+    var W = ancho > alto ? 297 : 210, H = ancho > alto ? 210 : 297, L = plantillaHoja(W, H, 1, 2);
+    var Hm = homografia(L.marcas, esq.map(function (p) { return [p.x, p.y]; })); if (!Hm) continue;
+    var rec = rectificarZona(G, Hm, L.qr.x - 3, L.qr.y - 3, L.qr.t + 6, 6);
+    var txt = null;
+    if (window.jsQR) { var r2 = jsQR(rec.data, rec.width, rec.height, { inversionAttempts: 'attemptBoth' }); if (r2) txt = r2.data; }
+    var inf = leerTextoQr(txt);
+    if (inf) return { qr: inf, esquinas: esq, G: G, sinQr: false };
+    
+    var m = 0, m2 = 0, n = rec.width * rec.height;
+    for (var i = 0; i < n; i++) { var v = rec.data[i * 4] / 255; m += v; m2 += v * v; }
+    m /= n; var varz = m2 / n - m * m;
+    if (!mejor || varz > mejor.v) mejor = { v: varz, esq: esq };
+  }
+  return { qr: null, esquinas: mejor ? mejor.esq : giro(1), giros: [0, 1, 2, 3].map(giro), G: G, sinQr: true, qrCrudo: qrTxt };
+}
+ 
+function rectificarZona(G, Hm, x0, y0, t, ppm) {
+  var n = Math.round(t * ppm), data = new Uint8ClampedArray(n * n * 4);
+  for (var y = 0; y < n; y++) for (var x = 0; x < n; x++) {
+    var p = Hm(x0 + x / ppm, y0 + y / ppm), v = 255;
+    if (p[0] >= 0 && p[1] >= 0 && p[0] < G.w - 1 && p[1] < G.h - 1) v = G.g[Math.round(p[1]) * G.w + Math.round(p[0])];
+    var o = (y * n + x) * 4; data[o] = data[o + 1] = data[o + 2] = v; data[o + 3] = 255;
+  }
+  return { data: data, width: n, height: n };
+}
+
+ 
+function leerBurbujas(det, L) {
+  var G = det.G, E = det.esquinas;
+  var Hm = homografia(L.marcas, E.map(function (p) { return [p.x, p.y]; }));
+  if (!Hm) return null;
+  var pxmm = Math.hypot(E[1].x - E[0].x, E[1].y - E[0].y) / (L.marcas[1][0] - L.marcas[0][0]);
+  var rad = Math.max(8, Math.round(pxmm * 9));
+  var fondo = function (p) { return mediaLocal(G, Math.round(p[0]), Math.round(p[1]), rad) * 1.04; };
+  var osc = function (x, y) { var p = Hm(x, y); return oscuridad(G, fondo(p), p[0], p[1]); };
+  
+  var aro = [], N = 16; for (var a = 0; a < N; a++) aro.push([Math.cos(a / N * 2 * Math.PI), Math.sin(a / N * 2 * Math.PI)]);
+  var aros = [];
+  var despl = L.burbujas.map(function (fila) {
+    var dxs = [], dys = [];
+    fila.b.forEach(function (b) {
+      var mejor = -1, bx = 0, by = 0;
+      for (var dy = -1.6; dy <= 1.6001; dy += 0.4) for (var dx = -1.6; dx <= 1.6001; dx += 0.4) {
+        var s = 0;
+        aro.forEach(function (u) { s += osc(b.x + dx + u[0] * L.r, b.y + dy + u[1] * L.r) - osc(b.x + dx + u[0] * (L.r + 1.1), b.y + dy + u[1] * (L.r + 1.1)); });
+        if (s > mejor) { mejor = s; bx = dx; by = dy; }
+      }
+      dxs.push(bx); dys.push(by); aros.push(mejor / N);
+    });
+    var med = function (v) { var s = v.slice().sort(function (p, q) { return p - q; }); return s[Math.floor(s.length / 2)]; };
+    return { dx: med(dxs), dy: med(dys) };
+  });
+  
+  var suav = despl.map(function (d, i) {
+    var col = Math.floor(i / L.porCol), xs = [], ys = [];
+    for (var j = i - 2; j <= i + 2; j++) if (j >= 0 && j < despl.length && Math.floor(j / L.porCol) === col) { xs.push(despl[j].dx); ys.push(despl[j].dy); }
+    xs.sort(function (p, q) { return p - q; }); ys.sort(function (p, q) { return p - q; });
+    return { dx: xs[Math.floor(xs.length / 2)], dy: ys[Math.floor(ys.length / 2)] };
+  });
+  
+  var dentro = []; for (var yy = -1; yy <= 1.0001; yy += 0.25) for (var xx = -1; xx <= 1.0001; xx += 0.25) if (xx * xx + yy * yy <= 1) dentro.push([xx, yy]);
+  var ri = L.r * 0.62;
+  var filas = L.burbujas.map(function (fila, i) {
+    var o = suav[i];
+    var pts = fila.b.map(function (b) {
+      var s = 0; dentro.forEach(function (u) { s += osc(b.x + o.dx + u[0] * ri, b.y + o.dy + u[1] * ri); });
+      return { s: s / dentro.length, px: Hm(b.x + o.dx, b.y + o.dy) };
+    });
+    return { s: pts.map(function (p) { return Math.round(p.s * 1000) / 1000; }), px: pts.map(function (p) { return p.px; }) };
+  });
+  
+  aros.sort(function (p, q) { return p - q; });
+  return { filas: filas, pxmm: pxmm, Hm: Hm, L: L, desp: suav, calidad: Math.round(aros[Math.floor(aros.length / 2)] * 1000) / 1000 };
+}
+ 
+function leerBurbujasSinQr(det, W, H, n, nOp) {
+  var mejor = null;
+  (det.giros || [det.esquinas]).forEach(function (esq) {
+    var ancho = Math.hypot(esq[1].x - esq[0].x, esq[1].y - esq[0].y), alto = Math.hypot(esq[3].x - esq[0].x, esq[3].y - esq[0].y);
+    if ((ancho > alto) !== (W > H)) return;
+    var L = plantillaHoja(W, H, n, nOp), lec = leerBurbujas({ G: det.G, esquinas: esq }, L);
+    if (lec && (!mejor || lec.calidad > mejor.lec.calidad)) mejor = { lec: lec, esq: esq };
+  });
+  if (mejor) det.esquinas = mejor.esq;
+  return mejor ? mejor.lec : null;
+}
+ 
+var UMBRAL_PAPEL = { vacia: 0.2, segura: 0.34, doble: 0.55 };
+function decidirFila(s, nOp) {
+  var orden = s.slice(0, nOp).map(function (v, j) { return { v: v, j: j }; }).sort(function (a, b) { return b.v - a.v; });
+  var s1 = orden[0], s2 = orden[1] || { v: 0 };
+  if (s1.v < UMBRAL_PAPEL.vacia) return { eleg: null, dudosa: s1.v > UMBRAL_PAPEL.vacia * 0.75 };
+  var doble = s2.v >= UMBRAL_PAPEL.vacia && s2.v > UMBRAL_PAPEL.doble * s1.v;
+  return { eleg: s1.j, dudosa: doble || s1.v < UMBRAL_PAPEL.segura };
+}
+
+
+
+
+var ES = null;
+function cargarJsQR() {
+  if (window.jsQR) return Promise.resolve();
+  return new Promise(function (ok, mal) { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'; s.onload = ok; s.onerror = mal; document.head.appendChild(s); });
+}
+function modoEscaner() {
+  document.title = 'Criterio · Escáner';
+  raiz(marca() + '<div class="cargando">Abriendo el escáner…</div>');
+  db.ref('escaner/' + ESCOD).once('value').then(function (s) {
+    var d = s.val();
+    if (!d) return raiz(marca() + '<div class="caja"><h2>Escáner cerrado</h2><p class="sub">Este escáner ya se cerró. Vuelve a abrirlo desde Criterio («📷 Corregir en papel»).</p></div>');
+    ES = { d: d, hechas: {}, estado: 'buscando', estable: 0, previo: null, sinHoja: 0, n: 0 };
+    return db.ref('escaner_res/' + ESCOD).once('value').then(function (r) {
+      var v = r.val() || {}; Object.keys(v).forEach(function (h) { ES.hechas[h] = { nota: v[h].notaGuardada || v[h].nota }; ES.n++; });
+      return cargarJsQR();
+    }).then(pantallaEscaner);
+  }).catch(function () { raiz(marca() + '<div class="caja"><h2>No se ha podido abrir</h2><p class="sub">Revisa la conexión y recarga la página.</p></div>'); });
+}
+function pantallaEscaner() {
+  raiz('');
+  var f = document.createElement('div'); f.className = 'escaner';
+  f.innerHTML = '<div class="esc-cab"><button class="esc-btn" id="esc-fin">✕ Terminar</button><div class="esc-tit">' + esc(ES.d.titulo) + '<small id="esc-cuenta"></small></div><button class="esc-btn" id="esc-luz" hidden>🔦</button></div>' +
+    '<div class="esc-visor"><video id="esc-video" playsinline muted autoplay></video><canvas class="capa" id="esc-capa"></canvas>' +
+    '<div class="esc-pista" id="esc-pista">Pon la hoja de respuestas delante: que se vean los 4 cuadrados negros</div><div class="esc-res" id="esc-res" hidden></div></div>';
+  document.body.appendChild(f);
+  cuentaEsc();
+  $('#esc-fin').onclick = terminarEscaner;
+  navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } }).then(function (st) {
+    ES.stream = st; var v = $('#esc-video'); v.srcObject = st; v.play().catch(function () {});
+    try { var tr = st.getVideoTracks()[0], cap = tr.getCapabilities ? tr.getCapabilities() : {}; ES.track = tr; if (cap.torch) { $('#esc-luz').hidden = false; $('#esc-luz').onclick = function () { ES.luz = !ES.luz; tr.applyConstraints({ advanced: [{ torch: ES.luz }] }).catch(function () {}); }; } } catch (e) {}
+    ES.timer = setTimeout(cicloEsc, 300);
+  }).catch(function (e) {
+    f.remove();
+    raiz(marca() + '<div class="caja"><h2>Sin cámara</h2><p class="sub">' + (e && e.name === 'NotAllowedError' ? 'Has denegado el permiso de la cámara. Actívalo para esta página en los ajustes del navegador y recarga.' : 'No se ha podido abrir la cámara de este dispositivo.') + '</p></div>');
+  });
+}
+function terminarEscaner() {
+  if (ES) { clearTimeout(ES.timer); if (ES.stream) ES.stream.getTracks().forEach(function (t) { t.stop(); }); }
+  var n = ES ? ES.n : 0; ES = null; var f = $('.escaner'); if (f) f.remove();
+  raiz(marca() + '<div class="caja" style="text-align:center"><div style="font-size:54px">✅</div><h2>' + n + (n === 1 ? ' hoja corregida' : ' hojas corregidas') + '</h2><p class="sub">Las notas pasan solas a Criterio. Ya puedes cerrar esta pestaña.<br>Para seguir, recarga la página.</p></div>');
+}
+function cuentaEsc() { var c = $('#esc-cuenta'); if (c) c.textContent = ES.n ? (ES.n === 1 ? '1 corregida' : ES.n + ' corregidas') : 'Ninguna corregida aún'; }
+function pistaEsc(t) { var p = $('#esc-pista'); if (p && p.textContent !== t) p.textContent = t; }
+function pitidoEsc(ok) {
+  try { var A = window.__ac || (window.__ac = new (window.AudioContext || window.webkitAudioContext)()), o = A.createOscillator(), g = A.createGain();
+    o.frequency.value = ok ? 1046 : 440; g.gain.value = 0.12; o.connect(g); g.connect(A.destination); o.start(); o.stop(A.currentTime + (ok ? 0.12 : 0.25)); } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate(ok ? 50 : [60, 60, 60]); } catch (e) {}
+}
+function fotoEsc(max) {
+  var v = $('#esc-video'); if (!v || !v.videoWidth) return null;
+  var k = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight)), w = Math.round(v.videoWidth * k), h = Math.round(v.videoHeight * k);
+  var cv = document.createElement('canvas'); cv.width = w; cv.height = h; var cx = cv.getContext('2d'); cx.drawImage(v, 0, 0, w, h);
+  return { img: cx.getImageData(0, 0, w, h), canvas: cv };
+}
+function capaEscP(cuatro, fw, fh, color) {
+  var v = $('#esc-video'), c = $('#esc-capa'); if (!v || !c) return;
+  var W = v.clientWidth, H = v.clientHeight; c.width = W; c.height = H;
+  var cx = c.getContext('2d'); cx.clearRect(0, 0, W, H); if (!cuatro) return;
+  var k = Math.min(W / fw, H / fh), ox = (W - fw * k) / 2, oy = (H - fh * k) / 2;
+  cx.strokeStyle = color; cx.fillStyle = color; cx.lineWidth = 3; cx.beginPath();
+  cuatro.forEach(function (p, i) { var x = ox + p.x * k, y = oy + p.y * k; if (i) cx.lineTo(x, y); else cx.moveTo(x, y); });
+  cx.closePath(); cx.globalAlpha = 0.18; cx.fill(); cx.globalAlpha = 1; cx.stroke();
+  cuatro.forEach(function (p) { cx.fillRect(ox + p.x * k - 9, oy + p.y * k - 9, 18, 18); });
+}
+function cicloEsc() {
+  if (!ES) return;
+  var sig = function (ms) { if (ES) ES.timer = setTimeout(cicloEsc, ms); };
+  if (ES.estado === 'leyendo' || ES.estado === 'revisando') return sig(250);
+  var fr = fotoEsc(720); if (!fr) return sig(250);
+  var G = prepararGris(fr.img), cuatro = elegirCuatro(buscarMarcas(G));
+  var ok = cuatro && areaCuad(cuatro) > fr.img.width * fr.img.height * 0.12;
+  if (!ok) {
+    capaEscP(null); ES.estable = 0; ES.previo = null; ES.sinHoja++;
+    if (ES.sinHoja >= 2) ES.estado = 'buscando';
+    if (ES.estado === 'buscando') pistaEsc(cuatro ? 'Acerca un poco el móvil a la hoja' : 'Pon la hoja de respuestas delante: que se vean los 4 cuadrados negros');
+    return sig(220);
+  }
+  ES.sinHoja = 0;
+  var mov = 1;
+  if (ES.previo) { mov = 0; cuatro.forEach(function (p, i) { mov = Math.max(mov, Math.hypot(p.x - ES.previo[i].x, p.y - ES.previo[i].y)); }); mov /= fr.img.width; }
+  ES.previo = cuatro;
+  if (mov > 0.06 && ES.estado === 'hecha') ES.estado = 'buscando';
+  ES.estable = mov < 0.015 ? ES.estable + 1 : 0;
+  capaEscP(cuatro, fr.img.width, fr.img.height, ES.estado === 'hecha' ? '#34c759' : ES.estable ? '#ffd60a' : '#ffffff');
+  if (ES.estado === 'hecha') return sig(250);
+  pistaEsc(ES.estable ? 'Quieto… leyendo' : 'Sujeta el móvil quieto');
+  if (ES.estable < 2) return sig(150);
+  ES.estado = 'leyendo';
+  setTimeout(function () { leerEsc(); sig(200); }, 10);
+}
+function resEsc(html, tipo) {
+  var r = $('#esc-res'); if (!r) return;
+  r.className = 'esc-res ' + tipo; r.innerHTML = html; r.hidden = false;
+  pistaEsc('Quita la hoja y pon la siguiente');
+  clearTimeout(ES.tRes); ES.tRes = setTimeout(function () { var x = $('#esc-res'); if (x) x.hidden = true; }, 4500);
+}
+function notaEsc(resp) {
+  var ps = ES.d.preguntas || [], puntos = 0;
+  ps.forEach(function (p) { if (resp[p.id] === undefined) return; if (Number(resp[p.id]) === Number(p.c)) puntos++; else if (ES.d.penaliza) puntos -= 1 / Math.max(1, p.n - 1); });
+  return Math.round(Math.max(0, puntos) / Math.max(1, ps.length) * 10 * 100) / 100;
+}
+function fmtN(n) { return String(Math.round(Number(n) * 100) / 100).replace('.', ','); }
+function leerEsc() {
+  var fr = fotoEsc(1700); if (!fr || !ES) { if (ES) ES.estado = 'buscando'; return; }
+  var det; try { det = detectarHoja(fr.img); } catch (e) { ES.estado = 'buscando'; return; }
+  if (det.error) { ES.estado = 'buscando'; return; }
+  if (!det.qr) { ES.estado = 'buscando'; ES.estable = 0; pistaEsc('No leo el código QR: acerca un poco el móvil y que no haya brillos'); return; }
+  var hid = det.qr.hojaId, hoja = ES.d.hojas[hid];
+  if (!hoja) { ES.estado = 'hecha'; resEsc('<b>Esta hoja es de otro examen</b>', 'mal'); pitidoEsc(false); return; }
+  if (ES.hechas[hid]) { ES.estado = 'hecha'; resEsc(esc(hoja.n) + ' · <b>' + fmtN(ES.hechas[hid].nota) + '</b><small>Ya estaba corregida</small>', 'ya'); return; }
+  var L = plantillaHoja(det.qr.apaisada ? 297 : 210, det.qr.apaisada ? 210 : 297, det.qr.n, det.qr.nOp);
+  var lec = leerBurbujas(det, L);
+  if (!lec || lec.calidad < 0.07) { ES.estado = 'buscando'; ES.estable = 0; pistaEsc('No encaja bien: pon la hoja más plana y de frente'); return; }
+  var porId = {}; (ES.d.preguntas || []).forEach(function (p) { porId[p.id] = p; });
+  var filas = ((hoja.o || {}).p || []).map(function (pid, i) {
+    var p = porId[pid], fl = lec.filas[i] || { s: [] }, nO = p ? p.n : det.qr.nOp, dec = decidirFila(fl.s, nO);
+    return { pid: pid, p: p, nOp: nO, eleg: dec.eleg, dudosa: dec.dudosa, i: i };
+  });
+  var A = { hid: hid, hoja: hoja, filas: filas, canvas: fr.canvas, img: fr.img, lec: lec, L: L };
+  var dudas = filas.filter(function (f) { return f.dudosa; });
+  if (dudas.length) { ES.estado = 'revisando'; pitidoEsc(false); revisarEsc(A, dudas); return; }
+  enviarEsc(A);
+}
+function respEsc(A) { var r = {}; A.filas.forEach(function (f) { if (f.eleg !== null && f.p) r[f.pid] = ((A.hoja.o.o || {})[f.pid] || [])[f.eleg]; }); return r; }
+function enviarEsc(A) {
+  var resp = respEsc(A), nota = notaEsc(resp), foto = '';
+  try { var c2 = document.createElement('canvas'), k = Math.min(1, 900 / Math.max(A.canvas.width, A.canvas.height)); c2.width = Math.round(A.canvas.width * k); c2.height = Math.round(A.canvas.height * k); c2.getContext('2d').drawImage(A.canvas, 0, 0, c2.width, c2.height); foto = c2.toDataURL('image/jpeg', 0.6); } catch (e) {}
+  ES.hechas[A.hid] = { nota: nota }; ES.n++; ES.estado = 'hecha'; cuentaEsc();
+  resEsc(esc(A.hoja.n) + ' · <b>' + fmtN(nota) + '</b><small>✓ Enviada a Criterio</small>', 'ok'); pitidoEsc(true);
+  db.ref('escaner_res/' + ESCOD + '/' + A.hid).set({ resp: resp, nota: nota, dudas: A.filas.filter(function (f) { return f.revisada; }).length, foto: foto, t: Date.now() })
+    .catch(function () { if (!ES) return; delete ES.hechas[A.hid]; ES.n--; cuentaEsc(); resEsc('<b>No se ha enviado</b><small>Sin conexión: vuelve a ponerla delante</small>', 'mal'); ES.estado = 'buscando'; });
+}
+ 
+function revisarEsc(A, dudas) {
+  var v = $('.esc-visor'), d = document.createElement('div'); d.className = 'esc-rev';
+  d.innerHTML = '<h2>' + esc(A.hoja.n) + '</h2><p>' + (dudas.length === 1 ? 'Hay 1 marca dudosa' : 'Hay ' + dudas.length + ' marcas dudosas') + ' (tachón, dos marcadas o marca flojita). Mírala en la hoja y toca la buena.</p><canvas id="esc-rev-cv"></canvas>' +
+    dudas.map(function (f) {
+      var b = ''; for (var j = 0; j < f.nOp; j++) b += '<button data-i="' + f.i + '" data-j="' + j + '" class="' + (f.eleg === j ? 'sel' : '') + '">' + 'ABCDEFGH'[j] + '</button>';
+      return '<div class="esc-fila"><span class="n">' + (f.i + 1) + '.</span>' + b + '<button class="blanco' + (f.eleg === null ? ' sel' : '') + '" data-i="' + f.i + '" data-j="-1">En blanco</button></div>';
+    }).join('') +
+    '<div style="display:flex;gap:10px;margin-top:14px"><button class="btn" id="esc-rev-no" style="flex:1">Descartar</button><button class="btn primario" id="esc-rev-ok" style="flex:2">✓ Guardar</button></div>';
+  v.appendChild(d);
+  
+  try {
+    var L = A.L, Hm = A.lec.Hm, ppm = 3.4, y0 = L.y0 - 2, y1 = Math.min(L.H - 14, L.y0 + 8 + L.rh * L.porCol), x0 = 12, x1 = Math.min(L.W - 12, L.x0 + (L.cols - 1) * L.cw + 11 + L.bs * L.nOp + 8);
+    var cv = $('#esc-rev-cv'), w = Math.round((x1 - x0) * ppm), h = Math.round((y1 - y0) * ppm); cv.width = w; cv.height = h;
+    var cx = cv.getContext('2d'), out = cx.createImageData(w, h), src = A.img.data, sw = A.img.width, sh = A.img.height;
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) { var p = Hm(x0 + x / ppm, y0 + y / ppm), px = Math.round(p[0]), py = Math.round(p[1]), o = (y * w + x) * 4;
+      if (px >= 0 && py >= 0 && px < sw && py < sh) { var q = (py * sw + px) * 4; out.data[o] = src[q]; out.data[o + 1] = src[q + 1]; out.data[o + 2] = src[q + 2]; } else { out.data[o] = out.data[o + 1] = out.data[o + 2] = 235; } out.data[o + 3] = 255; }
+    cx.putImageData(out, 0, 0);
+    dudas.forEach(function (f) { var fila = L.burbujas[f.i], dd = A.lec.desp[f.i] || { dx: 0, dy: 0 }; if (!fila) return;
+      cx.strokeStyle = '#ff9500'; cx.lineWidth = 3; cx.strokeRect((fila.num.x - 9 + dd.dx - x0) * ppm, (fila.num.y - L.rh / 2 + dd.dy - y0) * ppm, (13 + L.bs * L.nOp) * ppm, L.rh * ppm); });
+  } catch (e) {}
+  d.querySelectorAll('.esc-fila button').forEach(function (b) { b.onclick = function () {
+    var f = A.filas[Number(b.getAttribute('data-i'))], j = Number(b.getAttribute('data-j')); f.eleg = j < 0 ? null : j; f.revisada = true;
+    b.parentNode.querySelectorAll('button').forEach(function (x) { x.classList.toggle('sel', x === b); });
+  }; });
+  $('#esc-rev-no').onclick = function () { d.remove(); ES.estado = 'hecha'; pistaEsc('Descartada: quita la hoja'); };
+  $('#esc-rev-ok').onclick = function () { dudas.forEach(function (f) { f.revisada = true; }); d.remove(); enviarEsc(A); };
 }
 </script>
 </body>
