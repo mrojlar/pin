@@ -28,9 +28,28 @@
   .elegido { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: #effaf2; color: var(--exito); font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
   .elegido button { background: none; color: var(--texto-2); font-weight: 500; }
   .reglas { margin: 16px 0 0; padding-left: 20px; color: var(--texto-2); line-height: 1.6; }
+  .kc-cab { display: flex; justify-content: space-between; align-items: center; background: #fff; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; font-size: 17px; }
+  .kc-cab span { font-weight: 700; color: var(--acento); }
+  .kc-num { text-align: center; color: var(--texto-2); margin-bottom: 10px; font-weight: 600; }
+  .kc-ops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kc-op { min-height: 130px; border-radius: 16px; color: #fff; font-size: 18px; font-weight: 700; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; box-shadow: 0 4px 0 rgba(0,0,0,.2); }
+  .kc-op span { font-size: 34px; line-height: 1; }
+  .kc-msg { background: #fff; border-radius: 18px; padding: 40px 20px; text-align: center; font-size: 26px; font-weight: 700; line-height: 1.4; }
+  .kc-msg small { display: block; font-size: 16px; color: var(--texto-2); font-weight: 500; margin-top: 10px; }
+  .kc-msg.ok { background: #26890c; color: #fff; } .kc-msg.mal { background: #e21b3c; color: #fff; } .kc-msg.ok small, .kc-msg.mal small { color: rgba(255,255,255,.9); }
+  .kc-lista { margin-top: 10px; max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+  .kc-al { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--fondo); font-size: 16px; }
+  .kc-al.on { background: var(--acento-suave); color: var(--acento); font-weight: 600; }
   .preg { background: #fff; border-radius: 18px; padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
   .preg-t { font-weight: 650; font-size: 18px; line-height: 1.4; margin-bottom: 12px; }
   .preg img { max-width: 100%; border-radius: 12px; margin-bottom: 12px; display: block; }
+  .foto { margin-bottom: 12px; } .foto img { display: inline-block; margin: 0; max-height: 60vh; }
+  @media (min-width: 640px) { .foto.lado { float: right; margin: 0 0 10px 14px; max-width: 50%; } .foto.lado.izq { float: left; margin: 0 14px 10px 0; } .preg::after { content: ''; display: block; clear: both; } }
+  .ver-img { position: fixed; top: 10px; right: 10px; z-index: 50; background: #fff; color: #1d1d1f; border: 1px solid #d1d1d6; border-radius: 999px; padding: 9px 14px; font-size: 15px; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+  .intro-capa { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.85); overflow: auto; padding: 56px 12px 20px; text-align: center; }
+  .intro-capa img { max-width: 100%; border-radius: 10px; background: #fff; }
+  .intro-capa p { color: #fff; font-size: 16px; line-height: 1.45; text-align: left; max-width: 760px; margin: 0 auto 12px; white-space: pre-line; }
+  .intro-capa .cerrar { position: fixed; top: 10px; right: 10px; background: #fff; color: #1d1d1f; border-radius: 999px; padding: 9px 14px; font-weight: 600; border: 0; font-size: 15px; }
   .op { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 14px; margin-top: 8px; border: 2px solid var(--linea); border-radius: 14px; background: #fff; font-size: 16.5px; }
   .op b { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #c7c7cc; display: grid; place-items: center; flex-shrink: 0; color: var(--texto-2); font-size: 14px; }
   .op.sel { border-color: var(--acento); background: var(--acento-suave); } .op.sel b { background: var(--acento); border-color: var(--acento); color: #fff; }
@@ -139,6 +158,7 @@ function entrarPin(pin) {
     if (!ses) return pantallaPin('Ese PIN no existe. Revísalo.');
     if (!ses.abierto) return pantallaPin('Ese examen o evaluación está cerrado ahora mismo.');
     X.pin = pin; X.ses = ses; sessionStorage.setItem('pin', pin);
+    if (ses.tipo === 'concurso') return entrarConcurso();
     return db.ref('respuestas/' + pin + '/' + X.uid).once('value').then(function (r) {
       var v = r.val();
       if (v && v.nombre) { 
@@ -176,8 +196,81 @@ function pantallaNombre(err) {
     X.nombre = X.alumnoId ? X.nombre : i.value.trim().replace(/\s+/g, ' ');
     if (X.nombre.split(' ').length < 2) return pantallaNombre('Escribe tu nombre y al menos un apellido.');
     if (co && !X.alumnoId) return pantallaNombre('Toca tu nombre en la lista que sale al escribir.');
+    if (X.ses.tipo === 'concurso') return unirseConcurso({ nombre: X.nombre, alumnoId: X.alumnoId || '' });
     portada();
   };
+}
+
+
+
+var KC = { colores: ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#864cbf', '#0aa3a3'], formas: ['▲', '◆', '●', '■', '★', '✚'] };
+function entrarConcurso() {
+  return db.ref('concurso_j/' + X.pin + '/' + X.uid).once('value').then(function (s) {
+    var v = s.val();
+    if (v && (v.nombre || v.equipo)) { KC.yo = v; return jugarConcurso(); } 
+    if (X.ses.modo === 'equipos') return pantallaEquipo();
+    pantallaNombre();
+  });
+}
+ 
+function pantallaEquipo(err) {
+  var ses = X.ses; KC.sel = KC.sel || {};
+  raiz(marca() + '<div class="caja"><h2>' + esc(ses.titulo) + '</h2><p class="sub">Jugáis <b>por equipos</b> con este móvil. Poned nombre al equipo y marcad quiénes sois.</p>' +
+    '<input class="entrada" id="eq" autocomplete="off" maxlength="30" placeholder="Nombre del equipo" value="' + esc(KC.equipo || '') + '">' +
+    '<input class="entrada" id="busca" autocomplete="off" placeholder="Buscar compañero…" style="margin-top:12px;font-size:16px;padding:10px 14px">' +
+    '<div class="kc-lista" id="kl"></div><div class="error">' + esc(err || '') + '</div><button class="btn primario ancho" id="seguir">Entrar al concurso</button></div>');
+  var pintar = function () {
+    var q = norm($('#busca').value);
+    $('#kl').innerHTML = (ses.alumnos || []).filter(function (a) { return KC.sel[a.id] || !q || norm(a.n).indexOf(q) >= 0; }).map(function (a) {
+      return '<label class="kc-al' + (KC.sel[a.id] ? ' on' : '') + '"><input type="checkbox" data-id="' + esc(a.id) + '"' + (KC.sel[a.id] ? ' checked' : '') + '> ' + esc(a.n) + '</label>';
+    }).join('');
+    $('#kl').querySelectorAll('input').forEach(function (c) { c.onchange = function () { if (c.checked) KC.sel[c.getAttribute('data-id')] = true; else delete KC.sel[c.getAttribute('data-id')]; c.parentNode.classList.toggle('on', c.checked); }; });
+  };
+  $('#busca').oninput = pintar; $('#eq').oninput = function () { KC.equipo = this.value; };
+  pintar();
+  $('#seguir').onclick = function () {
+    var eq = $('#eq').value.trim(), m = Object.keys(KC.sel);
+    if (!eq) return pantallaEquipo('Poned un nombre al equipo.');
+    if (!m.length) return pantallaEquipo('Marcad quiénes formáis el equipo.');
+    unirseConcurso({ equipo: eq, nombre: eq, miembros: m });
+  };
+}
+function unirseConcurso(v) {
+  v.t = Date.now();
+  db.ref('concurso_j/' + X.pin + '/' + X.uid).set(v).then(function () { KC.yo = v; jugarConcurso(); })
+    .catch(function () { raiz(marca() + '<div class="caja"><h2>No se ha podido entrar</h2><p class="sub">Puede que el concurso esté cerrado. Pregunta a tu profesor.</p></div>'); });
+}
+function jugarConcurso() {
+  KC.resp = KC.resp || {};
+  db.ref('concurso/' + X.pin).on('value', function (s) { KC.c = s.val() || {}; pintarConcurso(); });
+  db.ref('sesiones/' + X.pin + '/abierto').on('value', function (s) { if (s.val() === null) { KC.fin = true; pintarConcurso(); } });
+}
+function pintarConcurso() {
+  var c = KC.c || {}, e = c.estado || {}, yo = KC.yo || {}, mm = (c.marcador || {})[X.uid] || null;
+  var cab = '<div class="kc-cab"><b>' + esc(yo.equipo || yo.nombre || '') + '</b>' + (mm ? '<span>' + (mm.p || 0) + ' pts</span>' : '') + '</div>';
+  if (KC.fin && e.fase !== 'fin') return raiz(cab + '<div class="kc-msg">El concurso ha terminado.</div>');
+  if (e.fase === 'pregunta') {
+    var p = c.pregunta || {}, n = e.n;
+    if (KC.resp[n] !== undefined) return raiz(cab + '<div class="kc-msg">⏳<br>Respuesta enviada.<br><small>Mira la pantalla.</small></div>');
+    raiz(cab + '<div class="kc-num">Pregunta ' + (n + 1) + ' de ' + e.total + '</div><div class="kc-ops">' + (p.o || []).map(function (o, k) {
+      return '<button class="kc-op" data-k="' + k + '" style="background:' + KC.colores[k % 6] + '"><span>' + KC.formas[k % 6] + '</span>' + esc(o) + '</button>';
+    }).join('') + '</div>');
+    document.querySelectorAll('.kc-op').forEach(function (b) {
+      b.onclick = function () {
+        var k = Number(b.getAttribute('data-k')); KC.resp[n] = k; pintarConcurso();
+        var ts = firebase.database && firebase.database.ServerValue ? firebase.database.ServerValue.TIMESTAMP : Date.now();
+        db.ref('concurso_r/' + X.pin + '/' + n + '/' + X.uid).set({ k: k, t: ts }).catch(function () { delete KC.resp[n]; pintarConcurso(); });
+      };
+    });
+    return;
+  }
+  if (e.fase === 'resultado' || e.fase === 'clasif') {
+    if (!mm) return raiz(cab + '<div class="kc-msg">Mira la pantalla.</div>');
+    return raiz(cab + '<div class="kc-msg ' + (mm.ok ? 'ok' : 'mal') + '">' + (mm.ok ? '✓<br>¡Correcto!<br><b>+' + mm.ult + '</b>' : mm.nada ? '⌛<br>Sin respuesta' : '✗<br>Incorrecto') +
+      '<small>Vas ' + mm.pos + '.º · ' + mm.p + ' puntos</small></div>');
+  }
+  if (e.fase === 'fin') return raiz(cab + '<div class="kc-msg">🏁<br>' + (mm ? 'Has quedado <b>' + mm.pos + '.º</b><small>' + mm.p + ' puntos · ' + mm.a + ' aciertos</small>' : 'Fin del concurso') + '</div>');
+  raiz(cab + '<div class="kc-msg">🎮<br>¡Ya estás dentro!<br><small>Mira la pantalla de clase: el concurso empieza enseguida.</small></div>');
 }
 
  
@@ -186,7 +279,13 @@ function barajar(n, s) { var a = []; for (var i = 0; i < n; i++) a.push(i); for 
 function prepararOrden() {
   if (X.orden) return;
   var ps = X.ses.preguntas || [], op = X.ses.opciones || {}, s = semilla();
-  var p = op.aleatorioP ? barajar(ps.length, s) : ps.map(function (x, i) { return i; }), o = {};
+  
+  var sel = ps.map(function (x, i) { return i; }), c = op.cuantas;
+  if (c && c.n && c.n < ps.length) {
+    if (c.modo === 'distintas') sel = barajar(ps.length, (s + 101) % 233280).slice(0, c.n).sort(function (a, b) { return a - b; });
+    else { var ix = {}; ps.forEach(function (q, i) { ix[q.id] = i; }); sel = (c.fijas || []).map(function (id) { return ix[id]; }).filter(function (i) { return i !== undefined; }).slice(0, c.n).sort(function (a, b) { return a - b; }); if (!sel.length) sel = ps.map(function (x, i) { return i; }).slice(0, c.n); }
+  }
+  var p = op.aleatorioP ? barajar(sel.length, s).map(function (k) { return sel[k]; }) : sel, o = {};
   ps.forEach(function (q, i) { o[q.id] = op.aleatorioR ? barajar(q.o.length, s + i * 17 + 3) : q.o.map(function (x, k) { return k; }); });
   X.orden = { p: p, o: o };
 }
@@ -194,10 +293,12 @@ function portada() {
   var ses = X.ses;
   if (ses.tipo === 'eval') return empezar();
   var op = ses.opciones || {}, t = op.tiempo || {};
-  var reglas = ['Tienes ' + ses.preguntas.length + ' preguntas.', t.modo === 'total' ? 'Tiempo: ' + t.min + ' minutos en total.' : t.modo === 'pregunta' ? t.seg + ' segundos por pregunta.' : 'Sin límite de tiempo.',
+  prepararOrden();
+  var reglas = ['Tienes ' + X.orden.p.length + ' preguntas.', t.modo === 'total' ? 'Tiempo: ' + t.min + ' minutos en total.' : t.modo === 'pregunta' ? t.seg + ' segundos por pregunta.' : 'Sin límite de tiempo.',
     op.atras === false ? 'Una pregunta cada vez: no podrás volver atrás.' : 'Puedes cambiar respuestas hasta entregar.',
     'No salgas de esta pantalla ni abras otras aplicaciones: tu profesor recibe un aviso' + (op.bloquear ? ' y el examen se bloquea.' : '.')];
-  raiz(marca() + '<div class="caja"><h2>' + esc(ses.titulo) + '</h2><p class="sub">' + esc(X.nombre) + '</p><ul class="reglas">' + reglas.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>' +
+  var it0 = ses.intro, introH = it0 && (it0.t || it0.img) ? '<div style="margin:10px 0 14px">' + (it0.t ? '<p style="white-space:pre-line">' + esc(it0.t) + '</p>' : '') + (it0.img ? '<img src="' + it0.img + '" alt="" style="max-width:100%;border-radius:10px">' : '') + '<p class="sub">Durante el examen la tienes en el botón «🖼️ Ver imagen».</p></div>' : '';
+  raiz(marca() + '<div class="caja"><h2>' + esc(ses.titulo) + '</h2><p class="sub">' + esc(X.nombre) + '</p>' + introH + '<ul class="reglas">' + reglas.map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>' +
     '<button class="btn primario ancho" id="empezar">Empezar</button></div>');
   $('#empezar').onclick = function () { empezar(); };
 }
@@ -212,12 +313,18 @@ function empezar(vuelve) {
   pintarExamen();
   if (vuelve) aviso('Sigues donde lo dejaste');
 }
+ 
+function fotoPreg(src, aj) {
+  aj = aj || {}; var tam = Number(aj.tam) || 0, pos = aj.pos || 'c';
+  return '<div class="foto' + (aj.lado ? ' lado' + (pos === 'i' ? ' izq' : '') : '') + '" style="text-align:' + ({ i: 'left', c: 'center', d: 'right' }[pos] || 'center') + '">' +
+    '<img src="' + src + '" alt=""' + (tam ? ' style="width:' + Math.max(tam, aj.lado ? tam : 35) + '%"' : '') + '></div>';
+}
 function preguntasOrdenadas() { return X.orden.p.map(function (i) { return X.ses.preguntas[i]; }); }
 function unoAUno() { var op = X.ses.opciones || {}; return op.atras === false || (op.tiempo && op.tiempo.modo === 'pregunta'); }
 function pintarExamen() {
   var ps = preguntasOrdenadas(), uno = unoAUno();
   var tarjeta = function (p, n) {
-    return '<div class="preg"><div class="preg-t">' + (n + 1) + '. ' + esc(p.t) + '</div>' + (p.img ? '<img src="' + p.img + '" alt="">' : '') +
+    return '<div class="preg"><div class="preg-t">' + (n + 1) + '. ' + esc(p.t) + '</div>' + (p.img ? fotoPreg(p.img, p.aj) : '') +
       X.orden.o[p.id].map(function (k, j) {
         return '<button class="op' + (X.resp[p.id] === k ? ' sel' : '') + '" data-p="' + esc(p.id) + '" data-k="' + k + '"><b>' + 'abcdefgh'[j] + '</b>' + esc(p.o[k]) + '</button>';
       }).join('') + '</div>';
@@ -225,6 +332,8 @@ function pintarExamen() {
   var h = '<h2 style="margin:6px 0 14px">' + esc(X.ses.titulo) + '</h2>';
   if (uno) { var p = ps[X.pos]; h += '<div class="paso">Pregunta ' + (X.pos + 1) + ' de ' + ps.length + '</div>' + tarjeta(p, X.pos) + '<button class="btn primario ancho" id="sig">' + (X.pos === ps.length - 1 ? 'Entregar' : 'Siguiente') + '</button>'; }
   else h += ps.map(tarjeta).join('');
+  var it = X.ses.intro;
+  if (it && (it.t || it.img)) h += '<button class="ver-img" id="ver-intro">🖼️ Ver imagen</button>';
   raiz(h + '<div class="barra"><span class="reloj" id="reloj"></span><span class="progreso"><span id="prog"></span></span><span id="cont"></span><button class="btn primario" id="entregar">Entregar</button></div>');
   document.querySelectorAll('.op').forEach(function (b) { b.onclick = function () {
     var pid = b.getAttribute('data-p'); X.resp[pid] = Number(b.getAttribute('data-k'));
@@ -232,11 +341,17 @@ function pintarExamen() {
     progreso(); guardar({});
   }; });
   if ($('#sig')) $('#sig').onclick = function () { siguiente(false); };
+  if ($('#ver-intro')) $('#ver-intro').onclick = function () {
+    var c = document.createElement('div'); c.className = 'intro-capa';
+    c.innerHTML = '<button class="cerrar">✕ Cerrar</button>' + (it.t ? '<p>' + esc(it.t) + '</p>' : '') + (it.img ? '<img src="' + it.img + '" alt="">' : '');
+    c.querySelector('.cerrar').onclick = function () { c.remove(); };
+    document.body.appendChild(c);
+  };
   $('#entregar').onclick = function () { entregar(false); };
   progreso(); reloj();
 }
 function progreso() {
-  var n = X.ses.preguntas.length, c = Object.keys(X.resp).length;
+  var n = X.orden ? X.orden.p.length : X.ses.preguntas.length, c = Object.keys(X.resp).length;
   if ($('#prog')) $('#prog').style.width = Math.round(c / n * 100) + '%';
   if ($('#cont')) $('#cont').textContent = c + '/' + n;
 }
@@ -263,14 +378,14 @@ function reloj() {
 function guardar(extra) {
   if (!X.pin || !X.uid) return Promise.resolve();
   var o = { nombre: X.nombre, alumnoId: X.alumnoId || '', inicio: X.inicio, respuestas: X.resp, pos: X.pos, salidas: X.salidas,
-    total: X.ses.tipo === 'examen' ? X.ses.preguntas.length : 0, bloquear: !!(X.ses.opciones && X.ses.opciones.bloquear), estado: 'haciendo', actualizado: new Date().toISOString() };
+    total: X.ses.tipo === 'examen' ? (X.orden ? X.orden.p.length : X.ses.preguntas.length) : 0, bloquear: !!(X.ses.opciones && X.ses.opciones.bloquear), estado: 'haciendo', actualizado: new Date().toISOString() };
   if (X.orden) o.orden = X.orden;
   Object.keys(extra || {}).forEach(function (k) { o[k] = extra[k]; });
   return db.ref('respuestas/' + X.pin + '/' + X.uid).set(o).catch(function () { aviso('⚠️ Sin conexión: se guardará al volver la red'); });
 }
 function entregar(forzado) {
   if (X.entregado) return;
-  var faltan = X.ses.tipo === 'examen' ? X.ses.preguntas.length - Object.keys(X.resp).length : 0;
+  var faltan = X.ses.tipo === 'examen' ? (X.orden ? X.orden.p.length : X.ses.preguntas.length) - Object.keys(X.resp).length : 0;
   if (!forzado) {
     preguntar('¿Entregar?', faltan ? (faltan === 1 ? 'Te falta 1 pregunta por contestar.' : 'Te faltan ' + faltan + ' preguntas por contestar.') : 'Ya no podrás cambiar tus respuestas.', 'Entregar', 'Seguir')
       .then(function (ok) { if (ok) entregar(true); });
@@ -400,10 +515,15 @@ function plantillaHoja(W, H, n, nOp) {
   for (var c2 = 0; c2 < cols; c2++) for (var j2 = 0; j2 < nOp; j2++) L.letras.push({ t: 'ABCDEFGH'[j2], x: L.x0 + c2 * cw + 11 + bs * (j2 + 0.5), y: L.y0 + 3 });
   return L;
 }
-function textoQrHoja(hojaId, n, nOp, apaisada) { return 'CRT1:' + hojaId + ':' + n + ':' + nOp + ':' + (apaisada ? 'L' : 'P'); }
+
+var MEDIDAS_HOJA = { P: [210, 297], L: [297, 210], S: [148.5, 210] };
+function formatoHoja(L) { return L.W > L.H ? 'L' : L.W < 200 ? 'S' : 'P'; }
+function textoQrHoja(hojaId, n, nOp, formato) { return 'CRT1:' + hojaId + ':' + n + ':' + nOp + ':' + formato; }
 function leerTextoQr(t) {
-  var m = String(t || '').match(/^CRT1:(hp\w+):(\d+):(\d+):([PL])$/);
-  return m ? { hojaId: m[1], n: Number(m[2]), nOp: Number(m[3]), apaisada: m[4] === 'L' } : null;
+  var m = String(t || '').match(/^CRT1:(hp\w+):(\d+):(\d+):([PLS])$/);
+  if (!m) return null;
+  var md = MEDIDAS_HOJA[m[4]];
+  return { hojaId: m[1], n: Number(m[2]), nOp: Number(m[3]), formato: m[4], apaisada: m[4] === 'L', W: md[0], H: md[1] };
 }
 
  
@@ -720,8 +840,9 @@ function resEsc(html, tipo) {
   pistaEsc('Quita la hoja y pon la siguiente');
   clearTimeout(ES.tRes); ES.tRes = setTimeout(function () { var x = $('#esc-res'); if (x) x.hidden = true; }, 4500);
 }
-function notaEsc(resp) {
+function notaEsc(resp, pids) {
   var ps = ES.d.preguntas || [], puntos = 0;
+  if (pids && pids.length) ps = ps.filter(function (p) { return pids.indexOf(p.id) >= 0; }); 
   ps.forEach(function (p) { if (resp[p.id] === undefined) return; if (Number(resp[p.id]) === Number(p.c)) puntos++; else if (ES.d.penaliza) puntos -= 1 / Math.max(1, p.n - 1); });
   return Math.round(Math.max(0, puntos) / Math.max(1, ps.length) * 10 * 100) / 100;
 }
@@ -734,7 +855,7 @@ function leerEsc() {
   var hid = det.qr.hojaId, hoja = ES.d.hojas[hid];
   if (!hoja) { ES.estado = 'hecha'; resEsc('<b>Esta hoja es de otro examen</b>', 'mal'); pitidoEsc(false); return; }
   if (ES.hechas[hid]) { ES.estado = 'hecha'; resEsc(esc(hoja.n) + ' · <b>' + fmtN(ES.hechas[hid].nota) + '</b><small>Ya estaba corregida</small>', 'ya'); return; }
-  var L = plantillaHoja(det.qr.apaisada ? 297 : 210, det.qr.apaisada ? 210 : 297, det.qr.n, det.qr.nOp);
+  var L = plantillaHoja(det.qr.W, det.qr.H, det.qr.n, det.qr.nOp);
   var lec = leerBurbujas(det, L);
   if (!lec || lec.calidad < 0.07) { ES.estado = 'buscando'; ES.estable = 0; pistaEsc('No encaja bien: pon la hoja más plana y de frente'); return; }
   var porId = {}; (ES.d.preguntas || []).forEach(function (p) { porId[p.id] = p; });
@@ -749,7 +870,7 @@ function leerEsc() {
 }
 function respEsc(A) { var r = {}; A.filas.forEach(function (f) { if (f.eleg !== null && f.p) r[f.pid] = ((A.hoja.o.o || {})[f.pid] || [])[f.eleg]; }); return r; }
 function enviarEsc(A) {
-  var resp = respEsc(A), nota = notaEsc(resp), foto = '';
+  var resp = respEsc(A), nota = notaEsc(resp, (A.hoja.o || {}).p), foto = '';
   try { var c2 = document.createElement('canvas'), k = Math.min(1, 900 / Math.max(A.canvas.width, A.canvas.height)); c2.width = Math.round(A.canvas.width * k); c2.height = Math.round(A.canvas.height * k); c2.getContext('2d').drawImage(A.canvas, 0, 0, c2.width, c2.height); foto = c2.toDataURL('image/jpeg', 0.6); } catch (e) {}
   ES.hechas[A.hid] = { nota: nota }; ES.n++; ES.estado = 'hecha'; cuentaEsc();
   resEsc(esc(A.hoja.n) + ' · <b>' + fmtN(nota) + '</b><small>✓ Enviada a Criterio</small>', 'ok'); pitidoEsc(true);
