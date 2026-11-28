@@ -249,13 +249,17 @@ var AV_BASES = ['🐶', '🐱', '🦊', '🐼', '🐸', '🐵', '🦁', '🐯', 
 var AV_GORROS = ['', '🎩', '👑', '🧢', '🎓', '⛑️', '🎀', '🪖'];
 var AV_GAFAS = ['', '👓', '🕶️', '🥽'];
 var AV_COLORES = ['#e21b3c', '#1368ce', '#d89e00', '#26890c', '#864cbf', '#0aa3a3', '#ff6b9a', '#3a3a3c'];
+
+var AV_OJOS = [0.42, 0.52, 0.55, 0.50, 0.30, 0.45, 0.50, 0.45, 0.50, 0.64, 0.45, 0.40, 0.38, 0.33, 0.45, 0.50, 0.50, 0.20];
+var AV_GAFA = [0.36, 0.34, 0.32, 0.36, 0.40, 0.34, 0.34, 0.36, 0.34, 0.30, 0.36, 0.36, 0.36, 0.26, 0.34, 0.38, 0.38, 0.24];
 function avatarHtml(av, tam) {
   if (!av) return '';
   tam = tam || 44;
-  var b = AV_BASES[Number(av.b) || 0] || AV_BASES[0], h = AV_GORROS[Number(av.h) || 0] || '', g = AV_GAFAS[Number(av.g) || 0] || '', c = AV_COLORES[Number(av.c) || 0] || AV_COLORES[0];
+  var ib = Number(av.b) || 0, b = AV_BASES[ib] || AV_BASES[0], h = AV_GORROS[Number(av.h) || 0] || '', g = AV_GAFAS[Number(av.g) || 0] || '', c = AV_COLORES[Number(av.c) || 0] || AV_COLORES[0];
+  var gt = AV_GAFA[ib] || 0.36, gy = (0.19 + 0.62 * (AV_OJOS[ib] === undefined ? 0.45 : AV_OJOS[ib])) * tam - gt * tam / 2;
   return '<span style="position:relative;display:inline-block;flex-shrink:0;vertical-align:middle;width:' + tam + 'px;height:' + tam + 'px;border-radius:50%;background:' + c + ';box-shadow:0 2px 0 rgba(0,0,0,.2)">' +
-    '<span style="position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;font-size:' + Math.round(tam * 0.62) + 'px;line-height:1">' + b + '</span>' +
-    (g ? '<span style="position:absolute;left:0;right:0;top:' + Math.round(tam * 0.30) + 'px;text-align:center;font-size:' + Math.round(tam * 0.36) + 'px;line-height:1">' + g + '</span>' : '') +
+    '<span style="position:absolute;left:0;right:0;top:' + Math.round(tam * 0.19) + 'px;text-align:center;font-size:' + Math.round(tam * 0.62) + 'px;line-height:1">' + b + '</span>' +
+    (g ? '<span style="position:absolute;left:0;right:0;top:' + Math.round(gy) + 'px;text-align:center;font-size:' + Math.round(tam * gt) + 'px;line-height:1">' + g + '</span>' : '') +
     (h ? '<span style="position:absolute;left:0;right:0;top:-' + Math.round(tam * 0.30) + 'px;text-align:center;font-size:' + Math.round(tam * 0.46) + 'px;line-height:1">' + h + '</span>' : '') + '</span>';
 }
 function verFotoGrande(src) {
@@ -295,10 +299,21 @@ function jugarConcurso() {
   db.ref('concurso/' + X.pin).on('value', function (s) { KC.c = s.val() || {}; pintarConcurso(); });
   db.ref('sesiones/' + X.pin + '/abierto').on('value', function (s) { if (s.val() === null) { KC.fin = true; pintarConcurso(); } });
 }
+function botonSalirKC() { return '<button class="btn primario ancho" id="kc-salir">🏠 Volver al inicio</button>'; }
+function activarSalirKC() {
+  var b = $('#kc-salir'); if (!b) return;
+  b.onclick = function () {
+    try { db.ref('concurso/' + X.pin).off(); db.ref('sesiones/' + X.pin + '/abierto').off(); } catch (e) {}
+    try { sessionStorage.removeItem('pin'); history.replaceState(null, '', location.pathname); } catch (e) {}
+    KC.yo = null; KC.c = null; KC.resp = {}; KC.fin = false; KC.sel = {}; KC.equipo = ''; KC.av = null;
+    X.pin = ''; X.ses = null; X.nombre = ''; X.alumnoId = '';
+    pantallaPin();
+  };
+}
 function pintarConcurso() {
   var c = KC.c || {}, e = c.estado || {}, yo = KC.yo || {}, mm = (c.marcador || {})[X.uid] || null;
   var cab = '<div class="kc-cab"><b style="display:flex;align-items:center;gap:10px">' + avatarHtml(yo.av, 36) + esc(yo.equipo || yo.nombre || '') + '</b>' + (mm ? '<span>' + (mm.p || 0) + ' pts</span>' : '') + '</div>';
-  if (KC.fin && e.fase !== 'fin') return raiz(cab + '<div class="kc-msg">El concurso ha terminado.</div>');
+  if (KC.fin && e.fase !== 'fin') { raiz(cab + '<div class="kc-msg">El concurso ha terminado.<small>Ya puedes cerrar esta pantalla.</small></div>' + botonSalirKC()); return activarSalirKC(); }
   if (e.fase === 'pregunta') {
     var p = c.pregunta || {}, n = e.n;
     if (KC.resp[n] !== undefined) return raiz(cab + '<div class="kc-msg">⏳<br>Respuesta enviada.<br><small>Mira la pantalla.</small></div>');
@@ -321,7 +336,11 @@ function pintarConcurso() {
     return raiz(cab + '<div class="kc-msg ' + (mm.ok ? 'ok' : 'mal') + '">' + (mm.ok ? '✓<br>¡Correcto!<br><b>+' + mm.ult + '</b>' : mm.nada ? '⌛<br>Sin respuesta' : '✗<br>Incorrecto') +
       '<small>Vas ' + mm.pos + '.º · ' + mm.p + ' puntos</small></div>');
   }
-  if (e.fase === 'fin') return raiz(cab + '<div class="kc-msg">🏁<br>' + (mm ? 'Has quedado <b>' + mm.pos + '.º</b><small>' + mm.p + ' puntos · ' + mm.a + ' aciertos</small>' : 'Fin del concurso') + '</div>');
+  if (e.fase === 'fin') {
+    raiz(cab + '<div class="kc-msg">🏁<br>' + (mm ? 'Has quedado <b>' + mm.pos + '.º</b><small>' + mm.p + ' puntos · ' + mm.a + ' aciertos</small>' : 'Fin del concurso') + '</div>' +
+      '<p class="sub" style="text-align:center;margin:18px 0 0">¡Concurso terminado! Ya puedes cerrar esta pantalla.</p>' + botonSalirKC());
+    return activarSalirKC();
+  }
   raiz(cab + '<div class="kc-msg">🎮<br>¡Ya estás dentro!<br><small>Mira la pantalla de clase: el concurso empieza enseguida.</small></div>');
 }
 
